@@ -1,106 +1,242 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Cube Runner</title>
-  <style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Space Dodge</title>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
     body {
-      margin: 0;
-      overflow: hidden;
-      background: #111;
-      color: white;
-      font-family: Arial;
-      text-align: center;
+        background: black;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+        color: white;
     }
 
     canvas {
-      background: #222;
-      display: block;
-      margin: auto;
-      border: 2px solid white;
+        display: block;
+        background: linear-gradient(#050816, #0b1026);
     }
-  </style>
+
+    #ui {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        z-index: 10;
+        font-size: 22px;
+    }
+
+    #gameOver {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        display: none;
+    }
+
+    button {
+        margin-top: 15px;
+        padding: 10px 20px;
+        border: none;
+        background: #00ccff;
+        color: black;
+        font-size: 18px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #66e0ff;
+    }
+</style>
 </head>
+
 <body>
 
-<h1>Cube Runner</h1>
-<p>Use arrow keys to move</p>
+<div id="ui">
+    Score: <span id="score">0</span>
+</div>
 
-<canvas id="game" width="800" height="400"></canvas>
+<div id="gameOver">
+    <h1>Game Over</h1>
+    <p id="finalScore"></p>
+    <button onclick="restartGame()">Play Again</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
 
 <script>
-const canvas = document.getElementById("game");
+const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-const player = {
-  x: 50,
-  y: 180,
-  size: 30,
-  speed: 5
-};
-
-const obstacle = {
-  x: 800,
-  y: 180,
-  size: 30,
-  speed: 6
-};
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 let score = 0;
+let gameRunning = true;
+
+const player = {
+    x: canvas.width / 2,
+    y: canvas.height - 100,
+    width: 50,
+    height: 50,
+    speed: 7,
+    color: "#00ccff"
+};
 
 const keys = {};
 
-document.addEventListener("keydown", e => {
-  keys[e.key] = true;
+const meteors = [];
+
+document.addEventListener("keydown", (e) => {
+    keys[e.key] = true;
 });
 
-document.addEventListener("keyup", e => {
-  keys[e.key] = false;
+document.addEventListener("keyup", (e) => {
+    keys[e.key] = false;
 });
+
+function spawnMeteor() {
+    meteors.push({
+        x: Math.random() * canvas.width,
+        y: -50,
+        size: Math.random() * 40 + 20,
+        speed: Math.random() * 4 + 3
+    });
+}
+
+setInterval(() => {
+    if (gameRunning) {
+        spawnMeteor();
+    }
+}, 700);
 
 function update() {
-  if (keys["ArrowUp"]) player.y -= player.speed;
-  if (keys["ArrowDown"]) player.y += player.speed;
+    if (!gameRunning) return;
 
-  obstacle.x -= obstacle.speed;
+    if (keys["ArrowLeft"] || keys["a"]) {
+        player.x -= player.speed;
+    }
 
-  if (obstacle.x < -30) {
-    obstacle.x = 800;
-    obstacle.y = Math.random() * 370;
-    score++;
-  }
+    if (keys["ArrowRight"] || keys["d"]) {
+        player.x += player.speed;
+    }
 
-  // Collision
-  if (
-    player.x < obstacle.x + obstacle.size &&
-    player.x + player.size > obstacle.x &&
-    player.y < obstacle.y + obstacle.size &&
-    player.y + player.size > obstacle.y
-  ) {
-    alert("Game Over! Score: " + score);
-    obstacle.x = 800;
-    score = 0;
-  }
+    if (keys["ArrowUp"] || keys["w"]) {
+        player.y -= player.speed;
+    }
+
+    if (keys["ArrowDown"] || keys["s"]) {
+        player.y += player.speed;
+    }
+
+    // Boundaries
+    player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+    player.y = Math.max(0, Math.min(canvas.height - player.height, player.y));
+
+    // Meteors
+    for (let i = meteors.length - 1; i >= 0; i--) {
+        let m = meteors[i];
+        m.y += m.speed;
+
+        // Collision
+        if (
+            player.x < m.x + m.size &&
+            player.x + player.width > m.x &&
+            player.y < m.y + m.size &&
+            player.y + player.height > m.y
+        ) {
+            endGame();
+        }
+
+        // Remove offscreen meteors
+        if (m.y > canvas.height) {
+            meteors.splice(i, 1);
+            score++;
+            document.getElementById("score").innerText = score;
+        }
+    }
+}
+
+function drawPlayer() {
+    ctx.fillStyle = player.color;
+
+    // Ship body
+    ctx.beginPath();
+    ctx.moveTo(player.x + player.width / 2, player.y);
+    ctx.lineTo(player.x, player.y + player.height);
+    ctx.lineTo(player.x + player.width, player.y + player.height);
+    ctx.closePath();
+    ctx.fill();
+}
+
+function drawMeteors() {
+    ctx.fillStyle = "#ff5533";
+
+    meteors.forEach((m) => {
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, m.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
+
+function drawStars() {
+    for (let i = 0; i < 80; i++) {
+        ctx.fillStyle = "white";
+        ctx.fillRect(
+            Math.random() * canvas.width,
+            Math.random() * canvas.height,
+            2,
+            2
+        );
+    }
 }
 
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.fillStyle = "lime";
-  ctx.fillRect(player.x, player.y, player.size, player.size);
-
-  ctx.fillStyle = "red";
-  ctx.fillRect(obstacle.x, obstacle.y, obstacle.size, obstacle.size);
-
-  ctx.fillStyle = "white";
-  ctx.font = "20px Arial";
-  ctx.fillText("Score: " + score, 10, 30);
+    drawStars();
+    drawPlayer();
+    drawMeteors();
 }
 
 function gameLoop() {
-  update();
-  draw();
-  requestAnimationFrame(gameLoop);
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
 }
+
+function endGame() {
+    gameRunning = false;
+
+    document.getElementById("gameOver").style.display = "block";
+    document.getElementById("finalScore").innerText =
+        "Your Score: " + score;
+}
+
+function restartGame() {
+    meteors.length = 0;
+    score = 0;
+    gameRunning = true;
+
+    player.x = canvas.width / 2;
+    player.y = canvas.height - 100;
+
+    document.getElementById("score").innerText = score;
+    document.getElementById("gameOver").style.display = "none";
+}
+
+window.addEventListener("resize", () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
 
 gameLoop();
 </script>
